@@ -7,8 +7,11 @@ from PIL import Image
 
 class GuitarTabDataset(Dataset):
     def __init__(self, audio_dir, annotation_dir):
-        self.audio_files = sorted([f for f in os.listdir(audio_dir) if f.endswith('.npy')])
-        self.annotation_files = sorted([f for f in os.listdir(annotation_dir) if f.endswith('.png')])
+        # Audio files are PNG, Annotations are NPY
+        self.audio_files = sorted([f for f in os.listdir(audio_dir) if f.endswith('.png')])
+        self.annotation_files = sorted([f for f in os.listdir(annotation_dir) if f.endswith('.npy')])
+
+        print(f"Found {len(self.audio_files)} audio files and {len(self.annotation_files)} annotation files.")
 
         assert len(self.audio_files) == len(self.annotation_files), "Mismatch in audio and annotation file counts."
 
@@ -22,12 +25,12 @@ class GuitarTabDataset(Dataset):
         audio_path = os.path.join(self.audio_dir, self.audio_files[idx])
         annotation_path = os.path.join(self.annotation_dir, self.annotation_files[idx])
 
-        # Load audio feature (CQT-transformed) from .npy
-        audio = np.load(audio_path, mmap_mode='r').astype(np.float32)
+        # Load audio spectrogram (was PNG before)
+        audio = Image.open(audio_path).convert("L")  # Convert to grayscale
+        audio = np.array(audio, dtype=np.float32) / 255.0  # Normalize to [0,1]
 
-        # Load annotation image and convert to grayscale
-        annotation = Image.open(annotation_path).convert("L")  # Convert to grayscale
-        annotation = np.array(annotation, dtype=np.float32) / 255.0  # Normalize to [0,1]
+        # Load annotation (was NPY before)
+        annotation = np.load(annotation_path, mmap_mode='r').astype(np.float32)
 
         # Convert to PyTorch tensors
         audio = torch.tensor(np.ascontiguousarray(audio))
