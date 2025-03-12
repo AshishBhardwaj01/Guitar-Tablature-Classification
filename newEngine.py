@@ -11,7 +11,45 @@ import seaborn as sns
 import time
 from tqdm import tqdm
 import my_dataloader
-from model.py import GuitarTabNet
+import torchvision.models as models
+
+class GuitarTabNet(nn.Module):
+    def __init__(self, input_shape, num_frets=19):
+        super(GuitarTabNet, self).__init__()
+
+        # Load Pretrained ResNet18 and modify first conv layer to accept spectrogram input
+        self.resnet = models.resnet18(pretrained=True)
+        self.resnet.conv1 = nn.Conv2d(input_shape[0], 64, kernel_size=3, padding=1, bias=False)
+        self.resnet.fc = nn.Linear(512, 256)  # Replace Identity layer with FC layer
+
+        # Fully Connected Layers for Each String
+        self.branches = nn.ModuleList([self._create_branch(256, num_frets) for _ in range(6)])
+
+    def _create_branch(self, input_dim, num_frets):
+        return nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.BatchNorm1d(128),
+            nn.Dropout(0.3),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.BatchNorm1d(64),
+            nn.Dropout(0.2),
+            nn.Linear(64, num_frets)
+        )
+
+    def forward(self, x):
+        x = self.resnet(x)  # Feature extraction
+        outputs = [F.log_softmax(branch(x), dim=1) for branch in self.branches]
+        return outputs
+
+
+def get_model(input_shape, learning_rate=0.001):
+    model = GuitarTabNet(input_shape)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    return model, optimizer
+
+
 # Set seeds for reproducibility
 def set_seed(seed=42):
     random.seed(seed)
