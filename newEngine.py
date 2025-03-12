@@ -11,6 +11,7 @@ import seaborn as sns
 import time
 from tqdm import tqdm
 import my_dataloader
+import model.py
 # Set seeds for reproducibility
 def set_seed(seed=42):
     random.seed(seed)
@@ -541,7 +542,7 @@ def main():
     print(f"Using device: {device}")
     
     # Create model and move to device
-    model = ImprovedGuitarTabModel(input_channels=1, input_dim=9, time_steps=96, num_classes=19)
+    model = GuitarTabModel(input_shape, num_frets=19)
     model = model.to(device)
     print(model)
     
