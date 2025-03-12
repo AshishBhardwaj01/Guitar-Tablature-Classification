@@ -15,7 +15,7 @@ import torchvision.models as models
 import os
 
 class GuitarTabNet(nn.Module):
-    def __init__(self, input_channels=3, num_frets=19):
+    def __init__(self, input_channels=1, num_frets=19):
         super(GuitarTabNet, self).__init__()
 
         # Load Pretrained ResNet18 and modify first conv layer to accept RGB images
@@ -582,7 +582,7 @@ def main():
     print(f"Using device: {device}")
     
     # Create model and move to device
-    model = GuitarTabNet(input_channels=3, num_frets=19)
+    model = GuitarTabNet(input_channels=1, num_frets=19)
     model = model.to(device)
     print(model)
     
