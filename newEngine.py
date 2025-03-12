@@ -11,7 +11,7 @@ import seaborn as sns
 import time
 from tqdm import tqdm
 import my_dataloader
-import GuitarTabNet from model.py
+from model.py import GuitarTabNet
 # Set seeds for reproducibility
 def set_seed(seed=42):
     random.seed(seed)
