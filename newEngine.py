@@ -14,12 +14,12 @@ import my_dataloader
 import torchvision.models as models
 
 class GuitarTabNet(nn.Module):
-    def __init__(self, input_shape, num_frets=19):
+    def __init__(self, input_channels=3, num_frets=19):
         super(GuitarTabNet, self).__init__()
 
-        # Load Pretrained ResNet18 and modify first conv layer to accept spectrogram input
+        # Load Pretrained ResNet18 and modify first conv layer to accept RGB images
         self.resnet = models.resnet18(pretrained=True)
-        self.resnet.conv1 = nn.Conv2d(input_shape[0], 64, kernel_size=3, padding=1, bias=False)
+        self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1, bias=False)
         self.resnet.fc = nn.Linear(512, 256)  # Replace Identity layer with FC layer
 
         # Fully Connected Layers for Each String
@@ -44,8 +44,8 @@ class GuitarTabNet(nn.Module):
         return outputs
 
 
-def get_model(input_shape, learning_rate=0.001):
-    model = GuitarTabNet(input_shape)
+def get_model(input_channels=3, learning_rate=0.001):
+    model = GuitarTabNet(input_channels)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
     return model, optimizer
 
