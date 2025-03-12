@@ -2,6 +2,8 @@ import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 import numpy as np
 import os
+from PIL import Image
+
 
 class GuitarTabDataset(Dataset):
     def __init__(self, audio_dir, annotation_dir):
@@ -20,15 +22,19 @@ class GuitarTabDataset(Dataset):
         audio_path = os.path.join(self.audio_dir, self.audio_files[idx])
         annotation_path = os.path.join(self.annotation_dir, self.annotation_files[idx])
 
-        # Efficient loading using mmap_mode to save memory
+        # Load audio feature (CQT-transformed) from .npy
         audio = np.load(audio_path, mmap_mode='r').astype(np.float32)
-        annotation = np.load(annotation_path, mmap_mode='r').astype(np.float32)
 
-        # Ensure tensors are contiguous in memory
+        # Load annotation image and convert to grayscale
+        annotation = Image.open(annotation_path).convert("L")  # Convert to grayscale
+        annotation = np.array(annotation, dtype=np.float32) / 255.0  # Normalize to [0,1]
+
+        # Convert to PyTorch tensors
         audio = torch.tensor(np.ascontiguousarray(audio))
-        heads = [torch.tensor(np.ascontiguousarray(annotation[i])) for i in range(6)]
+        annotation = torch.tensor(np.ascontiguousarray(annotation))
 
-        return audio, heads
+        return audio, annotation
+
 
 def create_dataloaders(audio_dir, annotation_dir, batch_size=2048, train_ratio=0.8, val_ratio=0.1):
     dataset = GuitarTabDataset(audio_dir, annotation_dir)
