@@ -587,7 +587,7 @@ def main():
     # Assuming you already have DataLoader objects for training and validation
     # train_loader, val_loader = get_data_loaders()
     # Load data
-    audio_dir = r'/content/Guitar-Tablature-Classification/cqt_audio'
+    audio_dir = r'/content/Guitar-Tablature-Classification/cqt_images'
     annotation_dir = r'/content/Guitar-Tablature-Classification/tablature_segments'
     set_seed()
     train_loader, val_loader, test_loader = my_dataloader.create_dataloaders(audio_dir, annotation_dir)
