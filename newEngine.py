@@ -590,6 +590,8 @@ def main():
     # Load data
     audio_dir = r'/content/Guitar-Tablature-Classification/cqt_images'
     annotation_dir = r'/content/Guitar-Tablature-Classification/tablature_segments'
+    print("Number of audio files:", sum(1 for _ in os.scandir(audio_dir)))
+    print("Number of annotation files:", sum(1 for _ in os.scandir(annotation_dir)))
     set_seed()
     train_loader, val_loader, test_loader = my_dataloader.create_dataloaders(audio_dir, annotation_dir)
     
