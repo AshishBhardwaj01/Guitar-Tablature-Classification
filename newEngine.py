@@ -580,7 +580,7 @@ def main():
     print(f"Using device: {device}")
     
     # Create model and move to device
-    model = GuitarTabNet(input_shape, num_frets=19)
+    model = GuitarTabNet(input_channels=3, num_frets=19)
     model = model.to(device)
     print(model)
     
