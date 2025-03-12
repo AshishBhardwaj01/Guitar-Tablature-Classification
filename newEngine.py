@@ -279,7 +279,8 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
         batch_count = 0
         
         for inputs, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} - Training"):
-            inputs = inputs.to(device)
+            # inputs = inputs.to(device)
+            inputs = torch.stack([load_annotation(img_path) for img_path in inputs]).to(device)
             # Ensure input is (Batch, Channels, Time, Frequency)
             inputs = inputs.unsqueeze(1)  # (32, 1, 96, 9)
             # print("Input shape before augmentation:", inputs.shape)
