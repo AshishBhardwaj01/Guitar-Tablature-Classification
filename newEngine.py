@@ -12,6 +12,7 @@ import time
 from tqdm import tqdm
 import my_dataloader
 import torchvision.models as models
+import os
 
 class GuitarTabNet(nn.Module):
     def __init__(self, input_channels=3, num_frets=19):
