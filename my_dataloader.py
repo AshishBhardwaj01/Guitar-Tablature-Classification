@@ -7,11 +7,8 @@ from PIL import Image
 
 class GuitarTabDataset(Dataset):
     def __init__(self, audio_dir, annotation_dir):
-        # Audio files are PNG, Annotations are NPY
         self.audio_files = sorted([f for f in os.listdir(audio_dir) if f.endswith('.png')])
         self.annotation_files = sorted([f for f in os.listdir(annotation_dir) if f.endswith('.npy')])
-
-        print(f"Found {len(self.audio_files)} audio files and {len(self.annotation_files)} annotation files.")
 
         assert len(self.audio_files) == len(self.annotation_files), "Mismatch in audio and annotation file counts."
 
@@ -22,22 +19,22 @@ class GuitarTabDataset(Dataset):
         return len(self.audio_files)
 
     def __getitem__(self, idx):
+        # Load spectrogram image
         audio_path = os.path.join(self.audio_dir, self.audio_files[idx])
-        annotation_path = os.path.join(self.annotation_dir, self.annotation_files[idx])
-
-        # Load audio spectrogram (was PNG before)
         audio = Image.open(audio_path).convert("L")  # Convert to grayscale
-        audio = np.array(audio, dtype=np.float32) / 255.0  # Normalize to [0,1]
+        audio = np.array(audio, dtype=np.float32) / 255.0  # Normalize
+        audio = torch.tensor(audio).unsqueeze(0)  # Shape: (1, H, W)
 
-        # Load annotation (was NPY before)
-        annotation = np.load(annotation_path, mmap_mode='r').astype(np.float32)
+        # Load annotation file
+        annotation_path = os.path.join(self.annotation_dir, self.annotation_files[idx])
+        annotation = np.load(annotation_path, mmap_mode='r').astype(np.int64)  # Ensure correct type
 
-        # Convert to PyTorch tensors
-        audio = torch.tensor(np.ascontiguousarray(audio))
-        annotation = torch.tensor(np.ascontiguousarray(annotation))
+        # Ensure annotation shape is (6,)
+        annotation = torch.tensor(annotation)
+        if annotation.shape[0] != 6:
+            raise ValueError(f"Annotation file {annotation_path} has shape {annotation.shape}, expected (6,)")
 
         return audio, annotation
-
 
 def create_dataloaders(audio_dir, annotation_dir, batch_size=32, train_ratio=0.8, val_ratio=0.1):
     dataset = GuitarTabDataset(audio_dir, annotation_dir)
