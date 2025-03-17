@@ -15,8 +15,10 @@ class GuitarTabDataset(Dataset):
         self.audio_dir = audio_dir
         self.annotation_dir = annotation_dir
         self.transform = transforms.Compose([
-            transforms.ToTensor(),  # Converts (H, W, 3) → (3, H, W) & scales to [0,1]
-        ])
+        transforms.Resize((224, 224)),  # Resize to ResNet input size
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # ImageNet normalization
+         ])
 
     def __len__(self):
         return len(self.audio_files)
@@ -38,7 +40,7 @@ class GuitarTabDataset(Dataset):
 
         return audio, annotation
 
-def create_dataloaders(audio_dir, annotation_dir, batch_size=32, train_ratio=0.8, val_ratio=0.1):
+def create_dataloaders(audio_dir, annotation_dir, batch_size=64, train_ratio=0.8, val_ratio=0.1):
     dataset = GuitarTabDataset(audio_dir, annotation_dir)
 
     # Split dataset into training, validation, and testing
