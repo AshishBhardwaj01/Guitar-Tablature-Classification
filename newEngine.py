@@ -320,6 +320,8 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
                     continue
                 
                 if target.dim() != 1:
+                    if not target.is_contiguous():
+                        target = target.contiguous()
                     target = target.view(-1)
                 
                 try:
@@ -427,7 +429,9 @@ def validate_model(model, val_loader, criterion, device):
                 target = labels[:, i]  # Shape: (batch_size,)
 
                 if target.dim() != 1:
-                    target = target.reshape(-1)  # Ensure shape (batch_size,)
+                    if not target.is_contiguous():
+                       target = target.contiguous()
+                    target = target.view(-1)  # Ensure shape (batch_size,)
 
                 try:
                     string_loss = criterion(output, target)
