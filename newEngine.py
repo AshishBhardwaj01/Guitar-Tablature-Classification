@@ -286,7 +286,7 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
             inputs = inputs.to(device)
             # inputs = torch.stack([load_annotation(img_path) for img_path in inputs]).to(device)
             # Ensure input is (Batch, Channels, Time, Frequency)
-            inputs = inputs.unsqueeze(1)  # (32, 1, 96, 9)
+            # inputs = inputs.unsqueeze(1)  # (32, 1, 96, 9)
             # print("Input shape before augmentation:", inputs.shape)
             # Apply data augmentation
             # inputs = augment_batch(inputs)
@@ -307,7 +307,7 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
             
             # Ensure input shape matches model's expectation
             if inputs.dim() == 3:  # [batch, time, features]
-                #inputs = inputs.unsqueeze(1)  # [batch, channel, time, features]
+               inputs = inputs.unsqueeze(1)  # [batch, channel, time, features]
             
             # Forward pass
             outputs = model(inputs)
