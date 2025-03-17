@@ -22,7 +22,7 @@ class GuitarTabNet(nn.Module):
         self.resnet = models.resnet18(pretrained=True)
         self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1, bias=False)
         torch.nn.init.kaiming_normal_(self.resnet.conv1.weight, mode='fan_out', nonlinearity='relu')  # Replace Identity layer with FC layer
-
+        self.resnet.fc = nn.Linear(512, 256) 
         # Fully Connected Layers for Each String
         self.branches = nn.ModuleList([self._create_branch(256, num_frets) for _ in range(6)])
 
