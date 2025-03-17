@@ -20,8 +20,7 @@ class GuitarTabNet(nn.Module):
 
         # Load Pretrained ResNet18 and modify first conv layer to accept RGB images
         self.resnet = models.resnet18(pretrained=True)
-        self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1, bias=False)
-        torch.nn.init.kaiming_normal_(self.resnet.conv1.weight, mode='fan_out', nonlinearity='relu')  # Replace Identity layer with FC layer
+        self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.resnet.fc = nn.Linear(512, 256) 
         # Fully Connected Layers for Each String
         self.branches = nn.ModuleList([self._create_branch(256, num_frets) for _ in range(6)])
@@ -251,7 +250,7 @@ class LabelSmoothingLoss(nn.Module):
             true_dist.scatter_(1, target.unsqueeze(1), self.confidence)
         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
-def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.001):
+def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.002):
     # Initialize optimizer with weight decay for regularization
     for batch_idx, (inputs, labels) in enumerate(train_loader):
         print(f"Batch {batch_idx}: Input Shape = {inputs.shape}")  # Should be (batch_size, 3, H, W)
@@ -428,7 +427,7 @@ def validate_model(model, val_loader, criterion, device):
                 target = labels[:, i]  # Shape: (batch_size,)
 
                 if target.dim() != 1:
-                    target = target.view(-1)  # Ensure shape (batch_size,)
+                    target = target.reshape(-1)  # Ensure shape (batch_size,)
 
                 try:
                     string_loss = criterion(output, target)
