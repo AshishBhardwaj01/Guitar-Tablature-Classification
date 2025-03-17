@@ -395,12 +395,11 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
     
     return model, checkpoint['epoch'], checkpoint['accuracies']
 
-def validate_model(model, val_loader, criterion, device):
+def validate_model(model, val_loader, criterion, device): 
     model.eval()
     total_loss = 0
     batch_count = 0
     
-    # Initialize accuracy and confusion matrix trackers
     correct = [0] * 6
     total = [0] * 6
     all_preds = [[] for _ in range(6)]
@@ -408,66 +407,53 @@ def validate_model(model, val_loader, criterion, device):
     
     with torch.no_grad():
         for inputs, labels in val_loader:
-            inputs = inputs.to(device)
-            
-            # Apply normalization (same as training, but no augmentation)
-            inputs = db_normalize(inputs)
-            
-            # Process labels
-            target_indices = []
-            for label in labels:
-                if label.dim() > 1 and label.shape[1] > 1:
-                    indices = torch.argmax(label, dim=1).to(device)
-                else:
-                    indices = label.to(device).long()
-                target_indices.append(indices)
-            
-            # Ensure input shape matches model's expectation
+            inputs, labels = inputs.to(device), labels.to(device)  # Move to GPU
+
+            # Ensure inputs have a channel dimension (batch_size, 1, H, W)
             if inputs.dim() == 3:
-                inputs = inputs.unsqueeze(1)
-            
+                inputs = inputs.unsqueeze(1)  
+
             # Forward pass
-            outputs = model(inputs)
+            outputs = model(inputs)  # Model returns a list of 6 tensors
             
-            # Calculate loss and accuracy
             loss = 0
             valid_outputs = 0
-            
-            for i, (output, target) in enumerate(zip(outputs, target_indices)):
-                if torch.isnan(output).any():
-                    continue
-                
+
+            # Compute loss for each string separately
+            for i in range(6):
+                output = outputs[i]  # Shape: (batch_size, num_frets)
+                target = labels[:, i]  # Shape: (batch_size,)
+
                 if target.dim() != 1:
-                    target = target.view(-1)
-                
+                    target = target.view(-1)  # Ensure shape (batch_size,)
+
                 try:
                     string_loss = criterion(output, target)
-                    if not torch.isnan(string_loss).any() and not torch.isinf(string_loss).any():
-                        loss += string_loss
-                        valid_outputs += 1
-                        
-                        # Calculate accuracy
-                        _, predicted = torch.max(output.data, 1)
-                        correct[i] += (predicted == target).sum().item()
-                        total[i] += target.size(0)
-                        
-                        # Store predictions and targets for confusion matrix
-                        all_preds[i].extend(predicted.cpu().numpy())
-                        all_targets[i].extend(target.cpu().numpy())
+                    loss += string_loss
+                    valid_outputs += 1
+
+                    # Accuracy calculation
+                    _, predicted = torch.max(output, 1)
+                    correct[i] += (predicted == target).sum().item()
+                    total[i] += target.size(0)
+
+                    # Store predictions for confusion matrix
+                    all_preds[i].extend(predicted.cpu().numpy())
+                    all_targets[i].extend(target.cpu().numpy())
+
                 except Exception as e:
-                    print(f"Error in validation: {e}")
-            
+                    print(f"Error in validation: {e}, Output shape: {output.shape}, Target shape: {target.shape}")
+
             # Average the loss
             if valid_outputs > 0:
                 loss = loss / valid_outputs
                 total_loss += loss.item()
                 batch_count += 1
     
-    # Calculate average validation loss
+    # Compute final loss and accuracy
     avg_loss = total_loss / max(batch_count, 1)
     print(f"Validation Loss: {avg_loss:.4f}")
-    
-    # Calculate and print accuracy for each string
+
     accuracies = []
     for i in range(6):
         if total[i] > 0:
@@ -477,10 +463,7 @@ def validate_model(model, val_loader, criterion, device):
         else:
             accuracies.append(0)
             print(f"Accuracy for string {i+1}: N/A (no samples)")
-    
-    # Generate confusion matrices
-    plot_confusion_matrices(all_preds, all_targets)
-    
+
     return avg_loss, accuracies
 
 def plot_training_metrics(train_losses, val_losses, string_accuracies):
