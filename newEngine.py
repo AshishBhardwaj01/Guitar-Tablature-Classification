@@ -254,8 +254,8 @@ class LabelSmoothingLoss(nn.Module):
 def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.001):
     # Initialize optimizer with weight decay for regularization
     for batch_idx, (inputs, labels) in enumerate(train_loader):
-    print(f"Batch {batch_idx}: Input Shape = {inputs.shape}")  # Should be (batch_size, 3, H, W)
-    break
+        print(f"Batch {batch_idx}: Input Shape = {inputs.shape}")  # Should be (batch_size, 3, H, W)
+        break
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     
     # Cosine annealing scheduler with warm restarts
