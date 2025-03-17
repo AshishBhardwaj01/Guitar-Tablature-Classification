@@ -15,13 +15,13 @@ import torchvision.models as models
 import os
 
 class GuitarTabNet(nn.Module):
-    def __init__(self, input_channels=1, num_frets=19):
+    def __init__(self, input_channels=3, num_frets=19):
         super(GuitarTabNet, self).__init__()
 
         # Load Pretrained ResNet18 and modify first conv layer to accept RGB images
         self.resnet = models.resnet18(pretrained=True)
         self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=3, padding=1, bias=False)
-        self.resnet.fc = nn.Linear(512, 256)  # Replace Identity layer with FC layer
+        torch.nn.init.kaiming_normal_(self.resnet.conv1.weight, mode='fan_out', nonlinearity='relu')  # Replace Identity layer with FC layer
 
         # Fully Connected Layers for Each String
         self.branches = nn.ModuleList([self._create_branch(256, num_frets) for _ in range(6)])
@@ -41,7 +41,7 @@ class GuitarTabNet(nn.Module):
 
     def forward(self, x):
         x = self.resnet(x)  # Feature extraction
-        outputs = [F.log_softmax(branch(x), dim=1) for branch in self.branches]
+        outputs = [branch(x) for branch in self.branches]
         return outputs
 
 
@@ -565,7 +565,7 @@ def main():
     print(f"Using device: {device}")
     
     # Create model and move to device
-    model = GuitarTabNet(input_channels=1, num_frets=19)
+    model = GuitarTabNet(input_channels=3, num_frets=19)
     model = model.to(device)
     print(model)
     
