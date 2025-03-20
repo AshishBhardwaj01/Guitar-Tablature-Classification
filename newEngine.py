@@ -442,6 +442,8 @@ def validate_model(model, val_loader, criterion, device):
                 
                 # Ensure `target` is 1D
                 if target.dim() != 1:
+                    if not target.is_contiguous():
+                        target = target.contiguous()
                     target = target.view(-1)  
 
                 # Debugging: Print shapes
