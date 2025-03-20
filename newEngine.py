@@ -417,65 +417,56 @@ def validate_model(model, val_loader, criterion, device):
     
     correct = [0] * 6
     total = [0] * 6
-    all_preds = [[] for _ in range(6)]
-    all_targets = [[] for _ in range(6)]
     
     with torch.no_grad():
         for inputs, labels in val_loader:
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-
-            # Ensure inputs have a channel dimension (batch_size, 3, H, W)
-            if inputs.dim() == 3:
-                inputs = inputs.unsqueeze(1)  
-
-            # Forward pass
-            outputs = model(inputs)  # Model returns a list of 6 tensors
+            # Debug print
+            print(f"Input batch shape: {inputs.shape}, Labels batch shape: {labels.shape}")
             
-            loss = 0
-            valid_outputs = 0
-
-            # Compute loss for each string separately
+            inputs = inputs.to(device)
+            labels = labels.to(device)  # Should be [batch_size, 6]
+            
+            # If labels are not the right shape, reshape them
+            if labels.dim() == 1:
+                # If flattened, reshape to [batch_size, 6]
+                batch_size = inputs.shape[0]
+                labels = labels.view(batch_size, -1)
+            
+            # Ensure inputs have channel dimension if needed
+            if inputs.dim() == 3:
+                inputs = inputs.unsqueeze(1)
+            
+            # Forward pass
+            outputs = model(inputs)  # List of 6 tensors, each [batch_size, num_frets]
+            
+            # For each string (0-5)
             for i in range(6):
-                output = outputs[i]  # Shape: (batch_size, num_frets)
-                target = labels[:, i]  # Shape: (batch_size,)
+                output = outputs[i]  # [batch_size, num_frets]
+                target = labels[:, i]  # [batch_size]
                 
-                # Ensure `target` is 1D
-                if target.dim() != 1:
-                    if not target.is_contiguous():
-                        target = target.contiguous()
-                    target = target.view(-1)  
-
-                # Debugging: Print shapes
-                print(f"Validation - String {i+1}: Output shape: {output.shape}, Target shape: {target.shape}")
-
+                # Check if target values are in expected range
+                if target.max() >= output.shape[1]:
+                    print(f"Warning: Target has value {target.max()} which is >= num_classes {output.shape[1]}")
+                    # Skip this batch for this string
+                    continue
+                
+                # Calculate loss and accuracy
+                _, predicted = torch.max(output, 1)
+                correct[i] += (predicted == target).sum().item()
+                total[i] += target.size(0)
+                
+                # Calculate loss (try/except to handle potential errors)
                 try:
                     string_loss = criterion(output, target)
-                    loss += string_loss
-                    valid_outputs += 1
-
-                    # Accuracy calculation
-                    _, predicted = torch.max(output, 1)
-                    correct[i] += (predicted == target).sum().item()
-                    total[i] += target.size(0)
-
-                    # Store predictions for confusion matrix
-                    all_preds[i].extend(predicted.cpu().numpy())
-                    all_targets[i].extend(target.cpu().numpy())
-
+                    total_loss += string_loss.item()
+                    batch_count += 1
                 except Exception as e:
-                    print(f"Error in validation: {e}, Output shape: {output.shape}, Target shape: {target.shape}")
-
-            # Average the loss
-            if valid_outputs > 0:
-                loss = loss / valid_outputs
-                total_loss += loss.item()
-                batch_count += 1
-    
-    # Compute final loss and accuracy
+                    print(f"Error in loss calculation: {e}")
+            
+    # Calculate average loss
     avg_loss = total_loss / max(batch_count, 1)
-    print(f"Validation Loss: {avg_loss:.4f}")
-
+    
+    # Calculate and print accuracies
     accuracies = []
     for i in range(6):
         if total[i] > 0:
@@ -485,7 +476,7 @@ def validate_model(model, val_loader, criterion, device):
         else:
             accuracies.append(0)
             print(f"Accuracy for string {i+1}: N/A (no samples)")
-
+    
     return avg_loss, accuracies
 
 def plot_training_metrics(train_losses, val_losses, string_accuracies):
