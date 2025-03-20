@@ -34,7 +34,7 @@ class GuitarTabDataset(Dataset):
         annotation = np.load(annotation_path, mmap_mode='r')
         
         # Check the shape of the annotation
-        print(f"Raw annotation shape: {annotation.shape}")
+        # print(f"Raw annotation shape: {annotation.shape}")
         
         # If it's one-hot encoded, convert it to class indices
         if len(annotation.shape) == 2 and annotation.shape[1] == 19:
