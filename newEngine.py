@@ -263,9 +263,6 @@ class LabelSmoothingLoss(nn.Module):
 
 def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.002):
     # Initialize optimizer with weight decay for regularization
-    for batch_idx, (inputs, labels) in enumerate(train_loader):
-        print(f"Batch {batch_idx}: Input Shape = {inputs.shape}")  # Should be (batch_size, 3, H, W)
-        break
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     
     # Cosine annealing scheduler with warm restarts
@@ -294,24 +291,10 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
         
         for inputs, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} - Training"):
             inputs = inputs.to(device)
-            # inputs = torch.stack([load_annotation(img_path) for img_path in inputs]).to(device)
-            # Ensure input is (Batch, Channels, Time, Frequency)
-            # inputs = inputs.unsqueeze(1)  # (32, 1, 96, 9)
-            # print("Input shape before augmentation:", inputs.shape)
-            # Apply data augmentation
-            # inputs = augment_batch(inputs)
-            # print("Input shape after augmentation:", inputs.shape)
+            labels = labels.to(device)  # Shape [batch_size, 6, 19]
+            
             # Apply normalization
             inputs = db_normalize(inputs)
-            
-            # Process labels
-            target_indices = []
-            for label in labels:
-                if label.dim() > 1 and label.shape[1] > 1:
-                    indices = torch.argmax(label, dim=1).to(device)
-                else:
-                    indices = label.to(device).long()
-                target_indices.append(indices)
             
             optimizer.zero_grad()
             
@@ -320,20 +303,19 @@ def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.
                inputs = inputs.unsqueeze(1)  # [batch, channel, time, features]
             
             # Forward pass
-            outputs = model(inputs)
+            outputs = model(inputs)  # List of 6 tensors, each [batch_size, num_frets]
             
             # Calculate loss
             loss = 0
             valid_outputs = 0
             
-            for output, target in zip(outputs, target_indices):
-                if torch.isnan(output).any():
-                    continue
-                
-                if target.dim() != 1:
-                    if not target.is_contiguous():
-                        target = target.contiguous()
-                    target = target.view(-1)
+            for i, output in enumerate(outputs):
+                # Get target for this string
+                if labels.shape[-1] == output.shape[-1]:  # If one-hot encoded
+                    target_onehot = labels[:, i]  # [batch_size, 19]
+                    target = torch.argmax(target_onehot, dim=1)  # [batch_size]
+                else:
+                    target = labels[:, i]  # [batch_size]
                 
                 try:
                     string_loss = criterion(output, target)
