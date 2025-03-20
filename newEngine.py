@@ -250,7 +250,7 @@ class LabelSmoothingLoss(nn.Module):
             true_dist.fill_(self.smoothing / (self.cls - 1))
 
             # Ensure target is 1D
-            target = target.view(-1)  
+            target = target.contiguous().view(-1)  
 
             # Debugging: Check if target values are within valid range
             if target.max() >= self.cls:
