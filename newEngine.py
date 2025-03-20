@@ -235,7 +235,7 @@ class ImprovedGuitarTabModel(nn.Module):
 
 # LabelSmoothingLoss for better generalization
 class LabelSmoothingLoss(nn.Module):
-    def __init__(self, classes, smoothing=0.1, dim=-1):
+    def __init__(self, classes, smoothing=0.1, dim=1):
         super(LabelSmoothingLoss, self).__init__()
         self.confidence = 1.0 - smoothing
         self.smoothing = smoothing
@@ -243,14 +243,23 @@ class LabelSmoothingLoss(nn.Module):
         self.dim = dim
 
     def forward(self, pred, target):
-        pred = pred.log_softmax(dim=self.dim)
+        pred = pred.log_softmax(dim=self.dim)  # Ensure log-softmax is applied along class dimension
+        
         with torch.no_grad():
             true_dist = torch.zeros_like(pred)
             true_dist.fill_(self.smoothing / (self.cls - 1))
-            target = target.view(-1)  # Ensure 1D target tensor
-            assert target.max() < self.cls, f"Target index {target.max()} out of range for {self.cls} classes"
+
+            # Ensure target is 1D
+            target = target.view(-1)  
+
+            # Debugging: Check if target values are within valid range
+            if target.max() >= self.cls:
+                raise ValueError(f"Invalid target index {target.max()} for {self.cls} classes")
+
             true_dist.scatter_(1, target.unsqueeze(1), self.confidence) 
+        
         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
+
 
 def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.002):
     # Initialize optimizer with weight decay for regularization
@@ -413,9 +422,10 @@ def validate_model(model, val_loader, criterion, device):
     
     with torch.no_grad():
         for inputs, labels in val_loader:
-            inputs, labels = inputs.to(device), labels.to(device)  # Move to GPU
+            inputs = inputs.to(device)
+            labels = labels.to(device)
 
-            # Ensure inputs have a channel dimension (batch_size, 1, H, W)
+            # Ensure inputs have a channel dimension (batch_size, 3, H, W)
             if inputs.dim() == 3:
                 inputs = inputs.unsqueeze(1)  
 
@@ -429,11 +439,13 @@ def validate_model(model, val_loader, criterion, device):
             for i in range(6):
                 output = outputs[i]  # Shape: (batch_size, num_frets)
                 target = labels[:, i]  # Shape: (batch_size,)
-
+                
+                # Ensure `target` is 1D
                 if target.dim() != 1:
-                    if not target.is_contiguous():
-                       target = target.contiguous()
-                    target = target.view(-1)  # Ensure shape (batch_size,)
+                    target = target.view(-1)  
+
+                # Debugging: Print shapes
+                print(f"Validation - String {i+1}: Output shape: {output.shape}, Target shape: {target.shape}")
 
                 try:
                     string_loss = criterion(output, target)
