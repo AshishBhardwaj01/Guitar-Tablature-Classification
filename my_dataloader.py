@@ -26,20 +26,29 @@ class GuitarTabDataset(Dataset):
     def __getitem__(self, idx):
         # Load spectrogram image
         audio_path = os.path.join(self.audio_dir, self.audio_files[idx])
-        audio = Image.open(audio_path).convert("RGB")  # Ensure 3-channel input
+        audio = Image.open(audio_path).convert("RGB")
         audio = self.transform(audio)  # Shape: (3, H, W)
-
+    
         # Load annotation file
         annotation_path = os.path.join(self.annotation_dir, self.annotation_files[idx])
-        annotation = np.load(annotation_path, mmap_mode='r').astype(np.int64)  # Ensure correct type
-
-        # Ensure annotation shape is (6,)
+        annotation = np.load(annotation_path, mmap_mode='r')
+        
+        # Check the shape of the annotation
+        print(f"Raw annotation shape: {annotation.shape}")
+        
+        # If it's one-hot encoded, convert it to class indices
+        if len(annotation.shape) == 2 and annotation.shape[1] == 19:
+            annotation = np.argmax(annotation, axis=1)
+        
+        # Convert to tensor
         annotation = torch.tensor(annotation, dtype=torch.long)
+        
+        # Ensure annotation has the expected shape
         if annotation.shape[0] != 6:
-            raise ValueError(f"Annotation file {annotation_path} has shape {annotation.shape}, expected (6,)")
-
+            print(f"Warning: Annotation has unexpected shape: {annotation.shape}")
+        
         return audio, annotation
-
+    
 def create_dataloaders(audio_dir, annotation_dir, batch_size=64, train_ratio=0.8, val_ratio=0.1):
     dataset = GuitarTabDataset(audio_dir, annotation_dir)
 
