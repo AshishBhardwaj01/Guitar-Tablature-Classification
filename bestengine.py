@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 import torchvision.models as models
 import os
+import time
 
 class GuitarTabNet(nn.Module):
     def __init__(self, input_channels=3, num_frets=19):
