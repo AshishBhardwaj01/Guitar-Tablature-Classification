@@ -83,7 +83,7 @@ class LabelSmoothingLoss(nn.Module):
         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
 
-def train_model(model, train_loader, val_loader, epochs=30, device='cuda', lr=0.001):
+def train_model(model, train_loader, val_loader, epochs=20, device='cuda', lr=0.001):
     # Use Adam optimizer with reduced learning rate
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     
@@ -409,7 +409,7 @@ def main():
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        epochs=30,
+        epochs=20,
         device=device,
         lr=0.0005  # Lower learning rate
     )
