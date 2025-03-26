@@ -391,8 +391,8 @@ def main():
     model = model.to(device)
     
     # Load your data
-    audio_dir = '/content/Guitar-Tablature-Classification/cqt_images'
-    annotation_dir = '/content/Guitar-Tablature-Classification/tablature_segments'
+    audio_dir = "/kaggle/working/Guitar-Tablature-Classification/cqt_images"
+    annotation_dir = '/kaggle/working/Guitar-Tablature-Classification/tablature_segments'
     
     print("Loading data...")
     from my_dataloader import create_dataloaders
