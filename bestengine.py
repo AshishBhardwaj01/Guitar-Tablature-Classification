@@ -406,9 +406,9 @@ def main():
         annotation_dir=annotation_dir,
         batch_size=32,  # Reduced batch size for stability
         train_ratio=0.8,
-        val_ratio=0.1
+        val_ratio=0.1,
         num_workers=4,  # Increase from 0 (default) to speed up loading
-        pin_memory=True  # Helps with CUDA data transfers
+        pin_memory=True # Helps with CUDA data transfers
     )
     
     print("Starting training...")
