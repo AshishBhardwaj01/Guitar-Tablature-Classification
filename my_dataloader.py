@@ -61,7 +61,7 @@ def create_dataloaders(audio_dir, annotation_dir, batch_size=64, train_ratio=0.8
 
     loader_args = {
         'batch_size': batch_size,
-        'num_workers': min(2, os.cpu_count() // 2),  # Safer num_workers
+        'num_workers': min(1, os.cpu_count() // 2),  # Safer num_workers
         'pin_memory': True,  
     }
 
