@@ -387,7 +387,12 @@ def main():
     set_seed(42)
     
     # Create model and move to device
-    model = GuitarTabNet(input_channels=3, num_frets=19)
+    model = GuitarTabNet(input_channels=3, num_frets=19).to(device)
+    # Enable multi-GPU if available
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs")
+        model = nn.DataParallel(model)
+
     model = model.to(device)
     
     # Load your data
@@ -402,6 +407,8 @@ def main():
         batch_size=32,  # Reduced batch size for stability
         train_ratio=0.8,
         val_ratio=0.1
+        num_workers=4,  # Increase from 0 (default) to speed up loading
+        pin_memory=True  # Helps with CUDA data transfers
     )
     
     print("Starting training...")
