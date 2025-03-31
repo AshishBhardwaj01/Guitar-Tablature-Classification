@@ -583,71 +583,45 @@ class GuitarTablatureExtractor:
                 tablature[string_idx, fret] = 1
                 
         return tablature
+    def extract_tablature_from_jams(self, jam, segment_time): 
+    """
+    Extract tablature data for a specific time segment from pre-loaded JAM
     
-    def extract_tablature_from_jams(self, jams_file, segment_time):
-        """
-        Extract tablature data for a specific time segment from JAMS file
-        
-        Parameters:
-        -----------
-        jams_file : str
-            Path to JAMS file
-        segment_time : float
-            Time point in seconds to extract tablature for
-            
-        Returns:
-        --------
-        tablature : numpy.ndarray
-            Binary tablature representation (6×19)
-        """
-        if not self.check_file_exists(jams_file):
-            print(f"JAMS file does not exist or is not accessible: {jams_file}")
-            return np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
-            
-        try:
-            jam = jams.load(jams_file)
-        except Exception as e:
-            print(f"Failed to load JAMS file {jams_file}: {str(e)}")
-            return np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
-        
-        # Find relevant note annotations
+    Parameters:
+    -----------
+    jam : jams.JAMS
+        Pre-loaded JAMS object
+    segment_time : float
+        Time point in seconds to extract tablature for
+    """
+    # Find relevant note annotations
         midi_notes = []
         midi_conf = []
-        
-        # Look for note_midi namespace
+    
+    # Look for note_midi namespace
         for ann in jam.annotations:
             if ann.namespace == 'note_midi':
                 for note in ann.data:
-                    # Check if the note is active at the segment time
+                # Check if the note is active at the segment time
                     start_time = note.time
                     end_time = start_time + note.duration
-                    
+                
                     if start_time <= segment_time < end_time:
                         midi_notes.append(note.value)
                         midi_conf.append(1.0)  # Default confidence
-                        
+                    
         return self.midi_to_tablature(midi_notes, midi_conf)
-    
-    def extract_tablature_from_pitch_contour(self, jams_file, segment_time):
+
+    def extract_tablature_from_pitch_contour(self, jam, segment_time):
         """
         Alternative method using pitch contour when note_midi isn't available
-        
+    
         Parameters as above
         """
-        if not self.check_file_exists(jams_file):
-            print(f"JAMS file does not exist or is not accessible: {jams_file}")
-            return np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
-            
-        try:
-            jam = jams.load(jams_file)
-        except Exception as e:
-            print(f"Failed to load JAMS file {jams_file}: {str(e)}")
-            return np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
-        
         # Find pitch contours near the segment time
         pitches = []
         confidences = []
-        
+    
         for ann in jam.annotations:
             if ann.namespace == 'pitch_contour':
                 for pitch_obs in ann.data:
@@ -658,7 +632,7 @@ class GuitarTablatureExtractor:
                             midi_pitch = librosa.hz_to_midi(pitch_obs.value)
                             pitches.append(midi_pitch)
                             confidences.append(pitch_obs.confidence)
-        
+    
         return self.midi_to_tablature(pitches, confidences)
     
     def get_cqt_segment_times(self, audio_file, segment_duration=0.2):
@@ -690,7 +664,7 @@ class GuitarTablatureExtractor:
         
         # Calculate number of segments and their center times
         num_segments = int(duration / segment_duration)
-        segment_times = [(i + 0.5) * segment_duration for i in range(num_segments)]
+        segment_times = [i * segment_duration for i in range(num_segments)]
         
         return segment_times
     
@@ -727,149 +701,147 @@ class GuitarTablatureExtractor:
         return None
     
     def process_file(self, jams_file, audio_file, segment_duration=0.2):
-        """
-        Process a complete file, extracting tablature for each segment
-        
-        Parameters:
-        -----------
-        jams_file : str
-            Path to JAMS file
-        audio_file : str
-            Path to audio file
-        segment_duration : float
-            Duration of each segment in seconds
-        """
-        # Get base filename without extension
-        base_name = os.path.splitext(os.path.basename(audio_file))[0]
-        
-        # Debug info
-        print(f"Processing file: {base_name}")
-        print(f"JAMS file: {jams_file}")
-        print(f"Audio file: {audio_file}")
-        
-        # Get segment times
-        segment_times = self.get_cqt_segment_times(audio_file, segment_duration)
-        if not segment_times:
-            print(f"No segment times could be obtained for {audio_file}")
-            return {'total': 0, 'with_notes': 0, 'with_first_string': 0}
+            """
+            Process a complete file, extracting tablature for each segment
+            """
+            # Get base filename without extension
+            base_name = os.path.splitext(os.path.basename(audio_file))[0]
             
-        print(f"Generated {len(segment_times)} segment times")
-        
-        # Check for existing CQT files
-        sample_cqt = self.find_cqt_image(base_name, 0)
-        if sample_cqt:
-            print(f"Found CQT file pattern: {sample_cqt.name}")
-        else:
-            print(f"WARNING: No CQT files found with base name {base_name}")
-            # List all files in the CQT directory to help debug
-            cqt_files = list(self.cqt_images_dir.glob("*.png"))
-            if cqt_files:
-                print(f"Examples of existing CQT files: {[f.name for f in cqt_files[:5]]}")
-            else:
-                print(f"No PNG files found in {self.cqt_images_dir}")
-        
-        # Create output directory for this file
-        file_output_dir = self.output_dir / base_name
-        file_output_dir.mkdir(exist_ok=True)
-        
-        tablature_stats = {
-            'total': 0,
-            'with_notes': 0,
-            'with_first_string': 0
-        }
-        
-        # Process each segment
-        for i, segment_time in enumerate(segment_times):
-            # Find corresponding CQT image
-            cqt_image_path = self.find_cqt_image(base_name, i)
+            # Debug info
+            print(f"Processing file: {base_name}")
+            print(f"JAMS file: {jams_file}")
+            print(f"Audio file: {audio_file}")
             
-            if not cqt_image_path:
-                print(f"Warning: CQT image not found for segment {i} of {base_name}")
-                continue
+            # Count actual available CQT images for this file
+            # This will help us determine the correct number of segments
+            cqt_images = sorted(self.cqt_images_dir.glob(f"{base_name}_*.png"))
+            num_images = len(cqt_images)
             
-            # Extract tablature for this segment
+            if num_images == 0:
+                print(f"No CQT images found for {base_name}")
+                return {'total': 0, 'with_notes': 0, 'with_first_string': 0}
+            
+            print(f"Found {num_images} CQT images for {base_name}")
+            
+            # Use the number of images to adjust segment times
+            y, sr = librosa.load(audio_file, sr=None)
+            duration = librosa.get_duration(y=y, sr=sr)
+            
+            # Adjust segment duration based on actual file duration and image count
+            adjusted_segment_duration = duration / num_images
+            segment_times = [(i + 0.5) * adjusted_segment_duration for i in range(num_images)]
+            
+            print(f"Adjusted segment duration to {adjusted_segment_duration:.3f}s")
+            print(f"Generated {len(segment_times)} segment times")
+            
+            # Create output directory for this file
+            file_output_dir = self.output_dir / base_name
+            file_output_dir.mkdir(exist_ok=True)
+            
+            tablature_stats = {
+                'total': 0,
+                'with_notes': 0,
+                'with_first_string': 0
+            }
+            
+            # Safe loading of JAMS file - try to handle special characters
             try:
-                tablature = self.extract_tablature_from_jams(jams_file, segment_time)
-                # If no notes found in tablature, try pitch contour method
-                if np.sum(tablature) == 0:
-                    tablature = self.extract_tablature_from_pitch_contour(jams_file, segment_time)
+                # Use a safer file loading approach
+                jams_file_str = str(jams_file)
+                # In Python 3.8+, you can use this to handle special characters in paths
+                jam = jams.load(os.path.abspath(jams_file_str))
+                jams_loaded = True
+                print(f"Successfully loaded JAMS file: {jams_file}")
             except Exception as e:
-                print(f"Error processing {jams_file} at time {segment_time}: {str(e)}")
-                continue
+                print(f"Failed to load JAMS file {jams_file}: {str(e)}")
+                print("Proceeding with empty tablature data")
+                jams_loaded = False
             
-            # Save tablature as numpy array
-            tablature_path = file_output_dir / f"{base_name}_{i:04d}.npy"
-            np.save(tablature_path, tablature)
+            # Process each segment
+            for i, segment_time in enumerate(segment_times):
+                # Find corresponding CQT image
+                cqt_image_path = self.find_cqt_image(base_name, i)
+                
+                if not cqt_image_path:
+                    print(f"Warning: CQT image not found for segment {i} of {base_name}")
+                    continue
+                
+                # Extract tablature for this segment
+                tablature = np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
+                if jams_loaded:
+                    try:
+                        tablature = self.extract_tablature_from_jams(jam, segment_time)
+                        # If no notes found in tablature, try pitch contour method
+                        if np.sum(tablature) == 0:
+                            tablature = self.extract_tablature_from_pitch_contour(jam, segment_time)
+                    except Exception as e:
+                        print(f"Error processing tablature at time {segment_time}: {str(e)}")
+                
+                # Save tablature as numpy array
+                tablature_path = file_output_dir / f"{base_name}_{i:04d}.npy"
+                np.save(tablature_path, tablature)
+                
+                # Update statistics
+                tablature_stats['total'] += 1
+                if np.sum(tablature) > 0:
+                    tablature_stats['with_notes'] += 1
+                if np.sum(tablature[0, :]) > 0:
+                    tablature_stats['with_first_string'] += 1
             
-            # Update statistics
-            tablature_stats['total'] += 1
-            if np.sum(tablature) > 0:
-                tablature_stats['with_notes'] += 1
-            if np.sum(tablature[0, :]) > 0:
-                tablature_stats['with_first_string'] += 1
-        
-        return tablature_stats
+            return tablature_stats
     
     def process_all_files(self, segment_duration=0.2):
-        """
-        Process all files in the directories
-        
-        Parameters:
-        -----------
-        segment_duration : float
-            Duration of each segment in seconds
-        """
-        # Get all JAMS files
-        jams_files = list(self.jams_dir.glob("*.jams"))
-        
-        if not jams_files:
-            print(f"No JAMS files found in {self.jams_dir}")
-            return
+            """
+            Process all files in the directories
+            """
+            # Get all JAMS files
+            jams_files = list(self.jams_dir.glob("*.jams"))
             
-        print(f"Found {len(jams_files)} JAMS files")
-        
-        all_stats = {
-            'total': 0,
-            'with_notes': 0,
-            'with_first_string': 0
-        }
-        
-        for jams_file in jams_files:
-            base_name = os.path.splitext(jams_file.name)[0]
-            
-            # Find corresponding audio file (try different formats)
-            audio_file = None
-            for ext in ['.wav']:
-                for prefix in ['hex_debleeded_', 'hex_debleeded-', 'hex_debleeded', '']:
-                    potential_file = self.audio_dir / f"{prefix}{base_name}{ext}"
-                    if potential_file.exists():
-                        audio_file = potential_file
-                        break
-                if audio_file:
-                    break
-            
-            if not audio_file:
-                print(f"Audio file not found for {base_name}")
-                # List audio files to help debug
-                audio_files = list(self.audio_dir.glob("*.wav"))
-                if audio_files:
-                    print(f"Examples of existing audio files: {[f.name for f in audio_files[:5]]}")
-                continue
-            
-            print(f"Processing {base_name}")
-            stats = self.process_file(jams_file, audio_file, segment_duration)
-            
-            # Update overall statistics
-            for key in all_stats:
-                all_stats[key] += stats[key]
+            if not jams_files:
+                print(f"No JAMS files found in {self.jams_dir}")
+                return
                 
-        print(f"Processing complete. Statistics:")
-        print(f"Total tablature files: {all_stats['total']}")
-        print(f"Files with any notes: {all_stats['with_notes']}")
-        print(f"Files with any notes on first string: {all_stats['with_first_string']}")
-        
-        return all_stats
-    
+            print(f"Found {len(jams_files)} JAMS files")
+            
+            all_stats = {
+                'total': 0,
+                'with_notes': 0,
+                'with_first_string': 0
+            }
+            
+            for jams_file in jams_files:
+                # Handle filenames with special characters
+                base_name = os.path.splitext(jams_file.name)[0]
+                
+                # Find corresponding audio file (try different formats)
+                audio_file = None
+                for ext in ['.wav']:
+                    for prefix in ['hex_debleeded_', 'hex_debleeded-', 'hex_debleeded', '']:
+                        potential_file = self.audio_dir / f"{prefix}{base_name}{ext}"
+                        if potential_file.exists():
+                            audio_file = potential_file
+                            break
+                    if audio_file:
+                        break
+                
+                if not audio_file:
+                    print(f"Audio file not found for {base_name}")
+                    continue
+                
+                print(f"Processing {base_name}")
+                stats = self.process_file(jams_file, audio_file, segment_duration)
+                
+                # Update overall statistics
+                for key in all_stats:
+                    all_stats[key] += stats[key]
+                    
+            print(f"Processing complete. Statistics:")
+            print(f"Total tablature files: {all_stats['total']}")
+            print(f"Files with any notes: {all_stats['with_notes']}")
+            print(f"Files with any notes on first string: {all_stats['with_first_string']}")
+            
+            return all_stats
+            
     def validate_tablature_data(self):
         """
         Validate the tablature data to ensure proper extraction
@@ -922,8 +894,8 @@ class GuitarTablatureExtractor:
 # Example usage
 if __name__ == "__main__":
     # Set up paths
-    JAMS_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/annotation"
-    AUDIO_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/audio_hex-pickup_debleeded"
+    JAMS_DIR = r"/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/annotation"
+    AUDIO_DIR = r"/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/audio_hex-pickup_debleeded"
     CQT_IMAGES_DIR = "./cqt_images_renamed"
     OUTPUT_DIR = "./tablature_tab"
     
