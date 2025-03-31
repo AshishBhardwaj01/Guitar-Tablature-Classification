@@ -584,16 +584,16 @@ class GuitarTablatureExtractor:
                 
         return tablature
     def extract_tablature_from_jams(self, jam, segment_time): 
-    """
-    Extract tablature data for a specific time segment from pre-loaded JAM
+        """
+        Extract tablature data for a specific time segment from pre-loaded JAM
     
-    Parameters:
-    -----------
-    jam : jams.JAMS
-        Pre-loaded JAMS object
-    segment_time : float
-        Time point in seconds to extract tablature for
-    """
+        Parameters:
+        -----------
+        jam : jams.JAMS
+            Pre-loaded JAMS object
+        segment_time : float
+          Time point in seconds to extract tablature for
+        """
     # Find relevant note annotations
         midi_notes = []
         midi_conf = []
