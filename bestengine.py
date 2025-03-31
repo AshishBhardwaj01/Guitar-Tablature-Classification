@@ -1,86 +1,90 @@
-# import torch
-# import torch.nn as nn
-# import torch.nn.functional as F
-# import torch.optim as optim
-# from torch.optim.lr_scheduler import ReduceLROnPlateau
-# import numpy as np
-# import random
-# import matplotlib.pyplot as plt
-# from tqdm import tqdm
-# import torchvision.models as models
-# import os
-# import time
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+from tqdm import tqdm
+import torchvision.models as models
+import os
+import time
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+from torchvision.utils import make_grid
+import torchvision.transforms.functional as TF
 
-# class GuitarTabNet(nn.Module):
-#     def __init__(self, input_channels=3, num_frets=19):
-#         super(GuitarTabNet, self).__init__()
+class GuitarTabNet(nn.Module):
+    def __init__(self, input_channels=3, num_frets=19):
+        super(GuitarTabNet, self).__init__()
 
-#         # Load Pretrained ResNet18 and modify first conv layer to accept RGB images
-#         self.resnet = models.resnet18(pretrained=True)
-#         self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
-#         self.resnet.fc = nn.Linear(512, 256) 
+        # Load Pretrained ResNet18 and modify first conv layer to accept RGB images
+        self.resnet = models.resnet18(pretrained=True)
+        self.resnet.conv1 = nn.Conv2d(input_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.resnet.fc = nn.Linear(512, 256) 
         
-#         # Separate fully connected layers for each string
-#         self.branches = nn.ModuleList([
-#             nn.Sequential(
-#                 nn.Linear(256, 128),
-#                 nn.ReLU(),
-#                 nn.BatchNorm1d(128),
-#                 nn.Dropout(0.3),
-#                 nn.Linear(128, 64),
-#                 nn.ReLU(),
-#                 nn.BatchNorm1d(64),
-#                 nn.Dropout(0.2),
-#                 nn.Linear(64, num_frets)
-#             ) for _ in range(6)
-#         ])
+        # Separate fully connected layers for each string
+        self.branches = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(256, 128),
+                nn.ReLU(),
+                nn.BatchNorm1d(128),
+                nn.Dropout(0.3),
+                nn.Linear(128, 64),
+                nn.ReLU(),
+                nn.BatchNorm1d(64),
+                nn.Dropout(0.2),
+                nn.Linear(64, num_frets)
+            ) for _ in range(6)
+        ])
 
-#     def forward(self, x):
-#         # Feature extraction with ResNet
-#         features = self.resnet(x)  
+    def forward(self, x):
+        # Feature extraction with ResNet
+        features = self.resnet(x)  
         
-#         # Apply each string branch
-#         outputs = [branch(features) for branch in self.branches]
-#         return outputs
+        # Apply each string branch
+        outputs = [branch(features) for branch in self.branches]
+        return outputs
 
 
-# # Set seeds for reproducibility
-# def set_seed(seed=42):
-#     random.seed(seed)
-#     np.random.seed(seed)
-#     torch.manual_seed(seed)
-#     if torch.cuda.is_available():
-#         torch.cuda.manual_seed_all(seed)
-#         torch.backends.cudnn.deterministic = True
-#         torch.backends.cudnn.benchmark = False
+# Set seeds for reproducibility
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
 
 
-# # Fixed label smoothing loss function
-# class LabelSmoothingLoss(nn.Module):
-#     def __init__(self, classes, smoothing=0.1, dim=1):
-#         super(LabelSmoothingLoss, self).__init__()
-#         self.confidence = 1.0 - smoothing
-#         self.smoothing = smoothing
-#         self.cls = classes
-#         self.dim = dim
+# Fixed label smoothing loss function
+class LabelSmoothingLoss(nn.Module):
+    def __init__(self, classes, smoothing=0.1, dim=1):
+        super(LabelSmoothingLoss, self).__init__()
+        self.confidence = 1.0 - smoothing
+        self.smoothing = smoothing
+        self.cls = classes
+        self.dim = dim
 
-#     def forward(self, pred, target):
-#         pred = pred.log_softmax(dim=self.dim)
+    def forward(self, pred, target):
+        pred = pred.log_softmax(dim=self.dim)
         
-#         # Create smoothed label distribution
-#         true_dist = torch.zeros_like(pred)
-#         true_dist.fill_(self.smoothing / (self.cls - 1))
+        # Create smoothed label distribution
+        true_dist = torch.zeros_like(pred)
+        true_dist.fill_(self.smoothing / (self.cls - 1))
         
-#         # Make sure target indices are valid
-#         if target.max() >= self.cls:
-#             print(f"Warning: Target max value {target.max()} exceeds class count {self.cls}")
-#             target = torch.clamp(target, 0, self.cls-1)
+        # Make sure target indices are valid
+        if target.max() >= self.cls:
+            print(f"Warning: Target max value {target.max()} exceeds class count {self.cls}")
+            target = torch.clamp(target, 0, self.cls-1)
             
-#         # Set the correct class probability
-#         true_dist.scatter_(1, target.unsqueeze(1), self.confidence)
+        # Set the correct class probability
+        true_dist.scatter_(1, target.unsqueeze(1), self.confidence)
         
-#         # Calculate the KL divergence
-#         return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
+        # Calculate the KL divergence
+        return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
 
 
 # def train_model(model, train_loader, val_loader, epochs=20, device='cuda', lr=0.001):
@@ -223,157 +227,157 @@
 #     return model, checkpoint['epoch'], checkpoint['accuracies']
 
 
-# def validate_model(model, val_loader, criterion, device):
-#     model.eval()
-#     total_loss = 0
-#     batch_count = 0
+def validate_model(model, val_loader, criterion, device):
+    model.eval()
+    total_loss = 0
+    batch_count = 0
     
-#     # Track correct/total predictions for each string
-#     correct = [0] * 6
-#     total = [0] * 6
-#     all_preds = [[] for _ in range(6)]
-#     all_targets = [[] for _ in range(6)]
+    # Track correct/total predictions for each string
+    correct = [0] * 6
+    total = [0] * 6
+    all_preds = [[] for _ in range(6)]
+    all_targets = [[] for _ in range(6)]
     
-#     with torch.no_grad():
-#         for inputs, labels in val_loader:
-#             inputs = inputs.to(device)
-#             labels = labels.to(device)
+    with torch.no_grad():
+        for inputs, labels in val_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
             
-#             # Forward pass
-#             outputs = model(inputs)
+            # Forward pass
+            outputs = model(inputs)
             
-#             # Process each string
-#             for i, output in enumerate(outputs):
-#                 # Extract target for this string
-#                 if labels.dim() > 1 and labels.shape[1] > 1:
-#                     if labels.shape[1] == 6:  # Each row is a string
-#                         target = labels[:, i]
-#                     else:  # One-hot encoded
-#                         target = torch.argmax(labels[:, i], dim=1) if labels.shape[2] > 1 else labels[:, i]
-#                 else:
-#                     # Skip if labels have unexpected shape
-#                     print(f"Unexpected validation label shape: {labels.shape}")
-#                     continue
+            # Process each string
+            for i, output in enumerate(outputs):
+                # Extract target for this string
+                if labels.dim() > 1 and labels.shape[1] > 1:
+                    if labels.shape[1] == 6:  # Each row is a string
+                        target = labels[:, i]
+                    else:  # One-hot encoded
+                        target = torch.argmax(labels[:, i], dim=1) if labels.shape[2] > 1 else labels[:, i]
+                else:
+                    # Skip if labels have unexpected shape
+                    print(f"Unexpected validation label shape: {labels.shape}")
+                    continue
                 
-#                 # Skip calculating metrics if any target value is invalid
-#                 if target.max() >= output.shape[1]:
-#                     print(f"Validation: String {i+1} has invalid target {target.max()}, classes: {output.shape[1]}")
-#                     continue
+                # Skip calculating metrics if any target value is invalid
+                if target.max() >= output.shape[1]:
+                    print(f"Validation: String {i+1} has invalid target {target.max()}, classes: {output.shape[1]}")
+                    continue
                 
-#                 # Calculate predictions
-#                 _, predicted = torch.max(output, 1)
+                # Calculate predictions
+                _, predicted = torch.max(output, 1)
                 
-#                 # Store predictions and targets for confusion matrix
-#                 all_preds[i].extend(predicted.cpu().numpy())
-#                 all_targets[i].extend(target.cpu().numpy())
+                # Store predictions and targets for confusion matrix
+                all_preds[i].extend(predicted.cpu().numpy())
+                all_targets[i].extend(target.cpu().numpy())
                 
-#                 # Update accuracy metrics
-#                 correct[i] += (predicted == target).sum().item()
-#                 total[i] += target.size(0)
+                # Update accuracy metrics
+                correct[i] += (predicted == target).sum().item()
+                total[i] += target.size(0)
                 
-#                 # Calculate loss
-#                 try:
-#                     string_loss = criterion(output, target)
-#                     if torch.isfinite(string_loss).all():
-#                         total_loss += string_loss.item() / 6  # Average across strings
-#                         batch_count += 1 / 6  # Count partial batch
-#                 except Exception as e:
-#                     print(f"Error in validation loss: {e}")
+                # Calculate loss
+                try:
+                    string_loss = criterion(output, target)
+                    if torch.isfinite(string_loss).all():
+                        total_loss += string_loss.item() / 6  # Average across strings
+                        batch_count += 1 / 6  # Count partial batch
+                except Exception as e:
+                    print(f"Error in validation loss: {e}")
     
-#     # Calculate average loss
-#     avg_loss = total_loss / max(batch_count, 1)
+    # Calculate average loss
+    avg_loss = total_loss / max(batch_count, 1)
     
-#     # Calculate accuracies
-#     accuracies = []
-#     for i in range(6):
-#         if total[i] > 0:
-#             accuracy = 100 * correct[i] / total[i]
-#             accuracies.append(accuracy)
-#         else:
-#             accuracies.append(0)
+    # Calculate accuracies
+    accuracies = []
+    for i in range(6):
+        if total[i] > 0:
+            accuracy = 100 * correct[i] / total[i]
+            accuracies.append(accuracy)
+        else:
+            accuracies.append(0)
     
-#     return avg_loss, accuracies
+    return avg_loss, accuracies
 
 
-# def plot_training_metrics(train_losses, val_losses, string_accuracies):
-#     """Plot training and validation metrics."""
-#     plt.figure(figsize=(15, 10))
+def plot_training_metrics(train_losses, val_losses, string_accuracies):
+    """Plot training and validation metrics."""
+    plt.figure(figsize=(15, 10))
     
-#     # Plot losses
-#     plt.subplot(2, 1, 1)
-#     plt.plot(train_losses, label='Training Loss')
-#     plt.plot(val_losses, label='Validation Loss')
-#     plt.title('Training and Validation Loss')
-#     plt.xlabel('Epochs')
-#     plt.ylabel('Loss')
-#     plt.legend()
-#     plt.grid(True)
+    # Plot losses
+    plt.subplot(2, 1, 1)
+    plt.plot(train_losses, label='Training Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.title('Training and Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.grid(True)
     
-#     # Plot accuracies
-#     plt.subplot(2, 1, 2)
-#     for i, accs in enumerate(string_accuracies):
-#         plt.plot(accs, label=f'String {i+1}')
-#     plt.title('Validation Accuracy by String')
-#     plt.xlabel('Epochs')
-#     plt.ylabel('Accuracy (%)')
-#     plt.legend()
-#     plt.grid(True)
+    # Plot accuracies
+    plt.subplot(2, 1, 2)
+    for i, accs in enumerate(string_accuracies):
+        plt.plot(accs, label=f'String {i+1}')
+    plt.title('Validation Accuracy by String')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy (%)')
+    plt.legend()
+    plt.grid(True)
     
-#     plt.tight_layout()
-#     plt.savefig('training_metrics.png')
-#     plt.close()
+    plt.tight_layout()
+    plt.savefig('training_metrics.png')
+    plt.close()
 
 
-# def test_model(model, test_loader, device):
-#     model.eval()
-#     correct = [0] * 6
-#     total = [0] * 6
+def test_model(model, test_loader, device):
+    model.eval()
+    correct = [0] * 6
+    total = [0] * 6
     
-#     with torch.no_grad():
-#         for inputs, labels in test_loader:
-#             inputs = inputs.to(device)
-#             labels = labels.to(device)
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            inputs = inputs.to(device)
+            labels = labels.to(device)
             
-#             # Forward pass
-#             outputs = model(inputs)
+            # Forward pass
+            outputs = model(inputs)
             
-#             # Process each string
-#             for i, output in enumerate(outputs):
-#                 try:
-#                     # Extract target for this string
-#                     if labels.dim() > 1 and labels.shape[1] > 1:
-#                         if labels.shape[1] == 6:  # Each row is a string
-#                             target = labels[:, i]
-#                         else:  # One-hot encoded
-#                             target = torch.argmax(labels[:, i], dim=1) if labels.shape[2] > 1 else labels[:, i]
-#                     else:
-#                         # Skip if labels have unexpected shape
-#                         continue
+            # Process each string
+            for i, output in enumerate(outputs):
+                try:
+                    # Extract target for this string
+                    if labels.dim() > 1 and labels.shape[1] > 1:
+                        if labels.shape[1] == 6:  # Each row is a string
+                            target = labels[:, i]
+                        else:  # One-hot encoded
+                            target = torch.argmax(labels[:, i], dim=1) if labels.shape[2] > 1 else labels[:, i]
+                    else:
+                        # Skip if labels have unexpected shape
+                        continue
                     
-#                     # Skip if any target value is invalid
-#                     if target.max() >= output.shape[1]:
-#                         continue
+                    # Skip if any target value is invalid
+                    if target.max() >= output.shape[1]:
+                        continue
                         
-#                     # Calculate predictions
-#                     _, predicted = torch.max(output, 1)
+                    # Calculate predictions
+                    _, predicted = torch.max(output, 1)
                     
-#                     # Update accuracy metrics
-#                     correct[i] += (predicted == target).sum().item()
-#                     total[i] += target.size(0)
-#                 except Exception as e:
-#                     print(f"Error in testing string {i+1}: {e}")
+                    # Update accuracy metrics
+                    correct[i] += (predicted == target).sum().item()
+                    total[i] += target.size(0)
+                except Exception as e:
+                    print(f"Error in testing string {i+1}: {e}")
     
-#     # Report accuracy
-#     print("\nTest Results:")
-#     overall_correct = sum(correct)
-#     overall_total = sum(total)
-#     overall_accuracy = 100 * overall_correct / overall_total if overall_total > 0 else 0
+    # Report accuracy
+    print("\nTest Results:")
+    overall_correct = sum(correct)
+    overall_total = sum(total)
+    overall_accuracy = 100 * overall_correct / overall_total if overall_total > 0 else 0
     
-#     for i in range(6):
-#         accuracy = 100 * correct[i] / total[i] if total[i] > 0 else 0
-#         print(f"String {i+1} accuracy: {accuracy:.2f}% ({correct[i]}/{total[i]})")
+    for i in range(6):
+        accuracy = 100 * correct[i] / total[i] if total[i] > 0 else 0
+        print(f"String {i+1} accuracy: {accuracy:.2f}% ({correct[i]}/{total[i]})")
     
-#     print(f"Overall accuracy: {overall_accuracy:.2f}% ({overall_correct}/{overall_total})")
+    print(f"Overall accuracy: {overall_accuracy:.2f}% ({overall_correct}/{overall_total})")
 
 
 # def main():
@@ -427,34 +431,7 @@
 
 # if __name__ == "__main__":
 #     main()
-import torch
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
-import numpy as np
-import random
-from torchvision.utils import make_grid
-import torchvision.transforms.functional as TF
-def set_seed(seed=42):
-    """
-    Set seeds for reproducibility across multiple libraries.
-    
-    Args:
-        seed (int): Seed value for random number generators
-    """
-    import random
-    import numpy as np
-    import torch
-    
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
-    
-    print(f"Random seed set to {seed} for reproducibility")
+
 def visualize_sample_images(dataloader, num_samples=8):
     """
     Visualize a batch of sample images from the dataloader to check for distortion.
