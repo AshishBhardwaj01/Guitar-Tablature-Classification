@@ -461,7 +461,7 @@ if __name__ == "__main__":
     # Set up paths
     JAMS_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/annotation"
     AUDIO_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/audio_hex-pickup_debleeded"
-    CQT_IMAGES_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/cqt_images_renamed"
+    CQT_IMAGES_DIR = "/content/drive/MyDrive/cqt_images_renamed"
     OUTPUT_DIR = "Guitar-Tablature-Classification/target_tab"
     
     # Initialize and run the extractor
