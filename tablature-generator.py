@@ -278,6 +278,21 @@ class TablatureGenerator:
         
         # Initialize processor for ViT
         self.processor = ViTImageProcessor.from_pretrained("facebook/dino-vits8")
+        checkpoint = torch.load(model_path, map_location=self.device)
+    
+    # Rename the state dict keys to match your model
+        new_state_dict = {}
+        for key, value in checkpoint['model_state_dict'].items():
+            if key.startswith('encoder.'):
+            # Replace 'encoder.' with 'vit.'
+                new_key = key.replace('encoder.', 'vit.')
+                new_state_dict[new_key] = value
+            else:
+                new_state_dict[key] = value
+    
+    # Try to load with strict=False to ignore missing/unexpected keys
+        self.model.load_state_dict(new_state_dict, strict=False)
+        print("Model loaded with some parameters ignored or missing. This might affect performance.")
 
     def preprocess_audio(self, audio_file, segment_duration=0.2, hop_duration=0.1):
         """
