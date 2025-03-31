@@ -459,9 +459,9 @@ class GuitarTablatureExtractor:
 # Example usage
 if __name__ == "__main__":
     # Set up paths
-    JAMS_DIR = "path/to/jams_files"
-    AUDIO_DIR = "path/to/audio_files"
-    CQT_IMAGES_DIR = "path/to/cqt_images"
+    JAMS_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/annotation"
+    AUDIO_DIR = "/content/drive/MyDrive/Seminar_8ThSEM_/Dataset/dataset_seminar_guitar_2025_/audio_hex-pickup_debleeded"
+    CQT_IMAGES_DIR = ""
     OUTPUT_DIR = "path/to/output_tablature"
     
     # Initialize and run the extractor
