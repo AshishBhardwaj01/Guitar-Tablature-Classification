@@ -435,7 +435,26 @@ import numpy as np
 import random
 from torchvision.utils import make_grid
 import torchvision.transforms.functional as TF
-
+def set_seed(seed=42):
+    """
+    Set seeds for reproducibility across multiple libraries.
+    
+    Args:
+        seed (int): Seed value for random number generators
+    """
+    import random
+    import numpy as np
+    import torch
+    
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    
+    print(f"Random seed set to {seed} for reproducibility")
 def visualize_sample_images(dataloader, num_samples=8):
     """
     Visualize a batch of sample images from the dataloader to check for distortion.
