@@ -539,103 +539,129 @@ class GuitarTablatureExtractor:
         return True
         
     def midi_to_tablature(self, midi_pitches, confidence=None):
-        """
-        Convert MIDI pitch to guitar tablature representation
-        
-        Parameters:
-        -----------
-        midi_pitches : list
-            List of MIDI pitch values
-        confidence : list, optional
-            Confidence values for each pitch
+            """
+            Convert MIDI pitch to guitar tablature representation
+            """
+            # Initialize empty tablature (strings × frets)
+            tablature = np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
             
-        Returns:
-        --------
-        tablature : numpy.ndarray
-            Binary tablature representation (6×19)
-        """
-        # Initialize empty tablature (strings × frets)
-        tablature = np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
-        
-        if len(midi_pitches) == 0:
-            return tablature
-            
-        # Process each MIDI pitch
-        for i, pitch in enumerate(midi_pitches):
-            conf = confidence[i] if confidence is not None else 1.0
-    
-            # Skip if confidence is too low
-            if conf < 0.5:
-                continue
-    
-    #         Check if pitch is a dictionary and extract the actual value
-            if isinstance(pitch, dict):
-                if 'value' in pitch:
-                    pitch = pitch['value']
-                else:
-            # Skip this pitch if we can't extract a value
+            if len(midi_pitches) == 0:
+                return tablature
+                
+            # Process each MIDI pitch
+            for i, pitch in enumerate(midi_pitches):
+                conf = confidence[i] if confidence is not None else 1.0
+                
+                # Skip if confidence is too low
+                if conf < 0.5:
                     continue
-            
-            # Find possible string-fret combinations
-            possible_positions = []
-            for string_idx, open_pitch in enumerate(self.open_string_pitches):
-                fret = int(round(pitch - open_pitch))
-                # Check if valid fret position
-                if 0 <= fret < self.num_frets:
-                    possible_positions.append((string_idx, fret))
                 
-        return tablature
-    def extract_tablature_from_jams(self, jam, segment_time): 
-        """
-        Extract tablature data for a specific time segment from pre-loaded JAM
-    
-        Parameters:
-        -----------
-        jam : jams.JAMS
-            Pre-loaded JAMS object
-        segment_time : float
-          Time point in seconds to extract tablature for
-        """
-    # Find relevant note annotations
-        midi_notes = []
-        midi_conf = []
-    
-    # Look for note_midi namespace
-        for ann in jam.annotations:
-            if ann.namespace == 'note_midi':
-                for note in ann.data:
-                # Check if the note is active at the segment time
-                    start_time = note.time
-                    end_time = start_time + note.duration
-                
-                    if start_time <= segment_time < end_time:
-                        midi_notes.append(note.value)
-                        midi_conf.append(1.0)  # Default confidence
+                # Handle dictionary pitch values
+                if isinstance(pitch, dict):
+                    # Try to extract the pitch value from the dictionary
+                    if 'pitch' in pitch:
+                        pitch = pitch['pitch']
+                    elif 'value' in pitch:
+                        pitch = pitch['value']
+                    else:
+                        # Skip if we can't find a usable value
+                        continue
+                        
+                # Make sure pitch is a number
+                try:
+                    pitch_value = float(pitch)
+                except (ValueError, TypeError):
+                    # Skip if pitch can't be converted to a number
+                    continue
                     
-        return self.midi_to_tablature(midi_notes, midi_conf)
+                # Find possible string-fret combinations
+                possible_positions = []
+                for string_idx, open_pitch in enumerate(self.open_string_pitches):
+                    try:
+                        fret = int(round(pitch_value - open_pitch))
+                        # Check if valid fret position
+                        if 0 <= fret < self.num_frets:
+                            possible_positions.append((string_idx, fret))
+                    except Exception:
+                        # Skip this string if calculation fails
+                        continue
+                
+                # Choose the most probable position (prefer lower frets)
+                if possible_positions:
+                    possible_positions.sort(key=lambda x: x[1])
+                    string_idx, fret = possible_positions[0]
+                    tablature[string_idx, fret] = 1
+                    
+            return tablature
+    def extract_tablature_from_jams(self, jam, segment_time): 
+            """
+            Extract tablature data for a specific time segment from pre-loaded JAM
+            """
+            # Find relevant note annotations
+            midi_notes = []
+            midi_conf = []
+        
+            # Look for note_midi namespace
+            for ann in jam.annotations:
+                if ann.namespace == 'note_midi':
+                    for note in ann.data:
+                        # Check if the note is active at the segment time
+                        start_time = note.time
+                        end_time = start_time + note.duration
+                        
+                        if start_time <= segment_time < end_time:
+                            # Handle both dictionary and direct value cases
+                            if isinstance(note.value, dict):
+                                # Try to extract the pitch value from the dictionary
+                                if 'pitch' in note.value:
+                                    midi_notes.append(note.value['pitch'])
+                                elif 'value' in note.value:
+                                    midi_notes.append(note.value['value'])
+                                else:
+                                    # Skip if we can't find a usable value
+                                    continue
+                            else:
+                                # Direct value case
+                                midi_notes.append(note.value)
+                            
+                            midi_conf.append(1.0)  # Default confidence
+                            
+            return self.midi_to_tablature(midi_notes, midi_conf)
 
     def extract_tablature_from_pitch_contour(self, jam, segment_time):
-        """
-        Alternative method using pitch contour when note_midi isn't available
-    
-        Parameters as above
-        """
-        # Find pitch contours near the segment time
-        pitches = []
-        confidences = []
-    
-        for ann in jam.annotations:
-            if ann.namespace == 'pitch_contour':
-                for pitch_obs in ann.data:
-                    # Consider pitch observations close to the segment time (within 50ms)
-                    if abs(pitch_obs.time - segment_time) < 0.05:
-                        # Convert Hz to MIDI
-                        if pitch_obs.value > 0:  # Skip silent regions
-                            midi_pitch = librosa.hz_to_midi(pitch_obs.value)
-                            pitches.append(midi_pitch)
-                            confidences.append(pitch_obs.confidence)
-    
-        return self.midi_to_tablature(pitches, confidences)
+            """
+            Alternative method using pitch contour when note_midi isn't available
+            """
+            # Find pitch contours near the segment time
+            pitches = []
+            confidences = []
+        
+            for ann in jam.annotations:
+                if ann.namespace == 'pitch_contour':
+                    for pitch_obs in ann.data:
+                        # Consider pitch observations close to the segment time (within 50ms)
+                        if abs(pitch_obs.time - segment_time) < 0.05:
+                            # Handle both dictionary and direct value cases
+                            pitch_val = None
+                            if isinstance(pitch_obs.value, dict):
+                                if 'frequency' in pitch_obs.value:
+                                    pitch_val = pitch_obs.value['frequency']
+                                elif 'value' in pitch_obs.value:
+                                    pitch_val = pitch_obs.value['value']
+                            else:
+                                pitch_val = pitch_obs.value
+                                
+                            # Convert Hz to MIDI if we have a valid value
+                            if pitch_val is not None and pitch_val > 0:  # Skip silent regions
+                                try:
+                                    midi_pitch = librosa.hz_to_midi(float(pitch_val))
+                                    pitches.append(midi_pitch)
+                                    confidences.append(pitch_obs.confidence)
+                                except (ValueError, TypeError):
+                                    # Skip if conversion fails
+                                    continue
+        
+            return self.midi_to_tablature(pitches, confidences)
     
     def get_cqt_segment_times(self, audio_file, segment_duration=0.2):
         """
