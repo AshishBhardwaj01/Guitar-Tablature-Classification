@@ -598,7 +598,7 @@ class GuitarTablatureExtractor:
             return tablature
 
     def extract_tablature_from_jams(self, jam, segment_time):
-            # Find relevant note annotations
+          # Find relevant note annotations
             midi_notes = []
             midi_conf = []
         
@@ -610,27 +610,27 @@ class GuitarTablatureExtractor:
                         start_time = note.time
                         end_time = start_time + note.duration if start_time is not None and note.duration is not None else None
                         
-                        # Skip if timing information is missing
+                        # Skip if timing information is missing or segment_time is None
                         if start_time is None or end_time is None or segment_time is None:
                             continue
                             
                         # Now we're safe to compare
                         if start_time <= segment_time < end_time:
-                                # Handle both dictionary and direct value cases
-                                if isinstance(note.value, dict):
-                                    # Try to extract the pitch value from the dictionary
-                                    if 'pitch' in note.value:
-                                        midi_notes.append(note.value['pitch'])
-                                    elif 'value' in note.value:
-                                        midi_notes.append(note.value['value'])
-                                    else:
-                                        # Skip if we can't find a usable value
-                                        continue
+                            # Handle both dictionary and direct value cases
+                            if isinstance(note.value, dict):
+                                # Try to extract the pitch value from the dictionary
+                                if 'pitch' in note.value:
+                                    midi_notes.append(note.value['pitch'])
+                                elif 'value' in note.value:
+                                    midi_notes.append(note.value['value'])
                                 else:
-                                    # Direct value case
-                                    midi_notes.append(note.value)
+                                    # Skip if we can't find a usable value
+                                    continue
+                            else:
+                                # Direct value case
+                                midi_notes.append(note.value)
                                 
-                                midi_conf.append(1.0)  # Default confidence
+                            midi_conf.append(1.0)  # Default confidence
                         
             return self.midi_to_tablature(midi_notes, midi_conf)
 
@@ -645,8 +645,10 @@ class GuitarTablatureExtractor:
             for ann in jam.annotations:
                 if ann.namespace == 'pitch_contour':
                     for pitch_obs in ann.data:
+                        # Skip if timing information is missing
                         if pitch_obs.time is None or segment_time is None:
                             continue
+                            
                         # Consider pitch observations close to the segment time (within 50ms)
                         if abs(pitch_obs.time - segment_time) < 0.05:
                             # Handle both dictionary and direct value cases
@@ -760,15 +762,19 @@ class GuitarTablatureExtractor:
             print(f"Found {num_images} CQT images for {base_name}")
             
             # Use the number of images to adjust segment times
-            y, sr = librosa.load(audio_file, sr=None)
-            duration = librosa.get_duration(y=y, sr=sr)
-            
-            # Adjust segment duration based on actual file duration and image count
-            adjusted_segment_duration = duration / num_images
-            segment_times = [i * adjusted_segment_duration for i in range(num_images)]
-            
-            print(f"Adjusted segment duration to {adjusted_segment_duration:.3f}s")
-            print(f"Generated {len(segment_times)} segment times")
+            try:
+                y, sr = librosa.load(audio_file, sr=None)
+                duration = librosa.get_duration(y=y, sr=sr)
+                
+                # Adjust segment duration based on actual file duration and image count
+                adjusted_segment_duration = duration / num_images
+                segment_times = [i * adjusted_segment_duration for i in range(num_images)]
+                
+                print(f"Adjusted segment duration to {adjusted_segment_duration:.3f}s")
+                print(f"Generated {len(segment_times)} segment times")
+            except Exception as e:
+                print(f"Error loading audio file or calculating segment times: {str(e)}")
+                return {'total': 0, 'with_notes': 0, 'with_first_string': 0}
             
             # Create output directory for this file
             file_output_dir = self.output_dir / base_name
@@ -806,11 +812,10 @@ class GuitarTablatureExtractor:
                 tablature = np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
                 if jams_loaded:
                     try:
-                            if segment_time is not None:
-                                tablature = self.extract_tablature_from_jams(jam, segment_time)
-                                # If no notes found in tablature, try pitch contour method
-                                if np.sum(tablature) == 0:
-                                    tablature = self.extract_tablature_from_pitch_contour(jam, segment_time)
+                        tablature = self.extract_tablature_from_jams(jam, segment_time)
+                        # If no notes found in tablature, try pitch contour method
+                        if np.sum(tablature) == 0:
+                            tablature = self.extract_tablature_from_pitch_contour(jam, segment_time)
                     except Exception as e:
                         print(f"Error processing tablature at time {segment_time}: {str(e)}")
                 
