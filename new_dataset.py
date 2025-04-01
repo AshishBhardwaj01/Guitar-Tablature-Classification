@@ -608,7 +608,8 @@ class GuitarTablatureExtractor:
                         # Check if the note is active at the segment time
                         start_time = note.time
                         end_time = start_time + note.duration
-                        
+                        if start_time is None or end_time is None:
+                           continue
                         if start_time <= segment_time < end_time:
                             # Handle both dictionary and direct value cases
                             if isinstance(note.value, dict):
@@ -639,6 +640,8 @@ class GuitarTablatureExtractor:
             for ann in jam.annotations:
                 if ann.namespace == 'pitch_contour':
                     for pitch_obs in ann.data:
+                        if pitch_obs.time is None:
+                           continue
                         # Consider pitch observations close to the segment time (within 50ms)
                         if abs(pitch_obs.time - segment_time) < 0.05:
                             # Handle both dictionary and direct value cases
