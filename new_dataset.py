@@ -559,31 +559,34 @@ class GuitarTablatureExtractor:
                 # Handle dictionary pitch values
                 if isinstance(pitch, dict):
                     # Try to extract the pitch value from the dictionary
-                    if 'pitch' in pitch:
-                        pitch = pitch['pitch']
-                    elif 'value' in pitch:
-                        pitch = pitch['value']
-                    else:
-                        # Skip if we can't find a usable value
-                        continue
-                        
-                # Make sure pitch is a number
+                    pitch = pitch.get('pitch') or pitch.get('value')
+                
+                # Ensure pitch is not None
+                if pitch is None:
+                    continue
+                    
+                # Convert to float safely
                 try:
                     pitch_value = float(pitch)
                 except (ValueError, TypeError):
-                    # Skip if pitch can't be converted to a number
                     continue
                     
                 # Find possible string-fret combinations
                 possible_positions = []
                 for string_idx, open_pitch in enumerate(self.open_string_pitches):
+                    if open_pitch is None:
+                        continue  # Skip this string if the open pitch is not defined
+        
                     try:
-                        fret = int(round(pitch_value - open_pitch))
+                        fret = pitch_value - open_pitch  # Ensure valid calculation
+                        if fret is None or not isinstance(fret, (int, float)):
+                            continue
+                        fret = int(round(fret))
                         # Check if valid fret position
                         if 0 <= fret < self.num_frets:
                             possible_positions.append((string_idx, fret))
-                    except Exception:
-                        # Skip this string if calculation fails
+                    except Exception as e:
+                        print(f"Error calculating fret position: {e}")
                         continue
                 
                 # Choose the most probable position (prefer lower frets)
@@ -593,10 +596,8 @@ class GuitarTablatureExtractor:
                     tablature[string_idx, fret] = 1
                     
             return tablature
+
     def extract_tablature_from_jams(self, jam, segment_time):
-            """
-            Extract tablature data for a specific time segment from pre-loaded JAM with None checks
-            """
             # Find relevant note annotations
             midi_notes = []
             midi_conf = []
@@ -610,13 +611,11 @@ class GuitarTablatureExtractor:
                         end_time = start_time + note.duration if start_time is not None and note.duration is not None else None
                         
                         # Skip if timing information is missing
-                        if start_time is None or end_time is None:
+                        if start_time is None or end_time is None or segment_time is None:
                             continue
                             
-                        # Check if the note is active at the segment time
-                        # Add explicit check for None values before comparison
-                        if start_time is not None and segment_time is not None and end_time is not None:
-                            if start_time <= segment_time < end_time:
+                        # Now we're safe to compare
+                        if start_time <= segment_time < end_time:
                                 # Handle both dictionary and direct value cases
                                 if isinstance(note.value, dict):
                                     # Try to extract the pitch value from the dictionary
