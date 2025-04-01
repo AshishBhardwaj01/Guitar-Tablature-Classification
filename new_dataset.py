@@ -805,10 +805,11 @@ class GuitarTablatureExtractor:
                 tablature = np.zeros((self.num_strings, self.num_frets), dtype=np.int8)
                 if jams_loaded:
                     try:
-                        tablature = self.extract_tablature_from_jams(jam, segment_time)
-                        # If no notes found in tablature, try pitch contour method
-                        if np.sum(tablature) == 0:
-                            tablature = self.extract_tablature_from_pitch_contour(jam, segment_time)
+                            if segment_time is not None:
+                                tablature = self.extract_tablature_from_jams(jam, segment_time)
+                                # If no notes found in tablature, try pitch contour method
+                                if np.sum(tablature) == 0:
+                                    tablature = self.extract_tablature_from_pitch_contour(jam, segment_time)
                     except Exception as e:
                         print(f"Error processing tablature at time {segment_time}: {str(e)}")
                 
