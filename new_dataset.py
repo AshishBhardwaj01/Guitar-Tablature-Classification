@@ -765,7 +765,7 @@ class GuitarTablatureExtractor:
             
             # Adjust segment duration based on actual file duration and image count
             adjusted_segment_duration = duration / num_images
-            segment_times = [(i + 0.5) * adjusted_segment_duration for i in range(num_images)]
+            segment_times = [i * adjusted_segment_duration for i in range(num_images)]
             
             print(f"Adjusted segment duration to {adjusted_segment_duration:.3f}s")
             print(f"Generated {len(segment_times)} segment times")
