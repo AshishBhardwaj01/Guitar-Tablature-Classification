@@ -593,9 +593,9 @@ class GuitarTablatureExtractor:
                     tablature[string_idx, fret] = 1
                     
             return tablature
-    def extract_tablature_from_jams(self, jam, segment_time): 
+    def extract_tablature_from_jams(self, jam, segment_time):
             """
-            Extract tablature data for a specific time segment from pre-loaded JAM
+            Extract tablature data for a specific time segment from pre-loaded JAM with None checks
             """
             # Find relevant note annotations
             midi_notes = []
@@ -607,9 +607,13 @@ class GuitarTablatureExtractor:
                     for note in ann.data:
                         # Check if the note is active at the segment time
                         start_time = note.time
-                        end_time = start_time + note.duration
+                        end_time = start_time + note.duration if start_time is not None and note.duration is not None else None
+                        
+                        # Skip if timing information is missing
                         if start_time is None or end_time is None:
-                           continue
+                            continue
+                            
+                        # Check if the note is active at the segment time
                         if start_time <= segment_time < end_time:
                             # Handle both dictionary and direct value cases
                             if isinstance(note.value, dict):
@@ -823,7 +827,7 @@ class GuitarTablatureExtractor:
     
     def process_all_files(self, segment_duration=0.2):
             """
-            Process all files in the directories
+            Process all files in the directories with better error handling
             """
             # Get all JAMS files
             jams_files = list(self.jams_dir.glob("*.jams"))
@@ -837,39 +841,47 @@ class GuitarTablatureExtractor:
             all_stats = {
                 'total': 0,
                 'with_notes': 0,
-                'with_first_string': 0
+                'with_first_string': 0,
+                'errors': 0
             }
             
             for jams_file in jams_files:
-                # Handle filenames with special characters
-                base_name = os.path.splitext(jams_file.name)[0]
-                
-                # Find corresponding audio file (try different formats)
-                audio_file = None
-                for ext in ['.wav']:
-                    for prefix in ['hex_debleeded_', 'hex_debleeded-', 'hex_debleeded', '']:
-                        potential_file = self.audio_dir / f"{prefix}{base_name}{ext}"
-                        if potential_file.exists():
-                            audio_file = potential_file
+                try:
+                    # Handle filenames with special characters
+                    base_name = os.path.splitext(jams_file.name)[0]
+                    
+                    # Find corresponding audio file (try different formats)
+                    audio_file = None
+                    for ext in ['.wav']:
+                        for prefix in ['hex_debleeded_', 'hex_debleeded-', 'hex_debleeded', '']:
+                            potential_file = self.audio_dir / f"{prefix}{base_name}{ext}"
+                            if potential_file.exists():
+                                audio_file = potential_file
+                                break
+                        if audio_file:
                             break
-                    if audio_file:
-                        break
-                
-                if not audio_file:
-                    print(f"Audio file not found for {base_name}")
-                    continue
-                
-                print(f"Processing {base_name}")
-                stats = self.process_file(jams_file, audio_file, segment_duration)
-                
-                # Update overall statistics
-                for key in all_stats:
-                    all_stats[key] += stats[key]
+                    
+                    if not audio_file:
+                        print(f"Audio file not found for {base_name}, skipping")
+                        continue
+                    
+                    print(f"Processing {base_name}")
+                    stats = self.process_file(jams_file, audio_file, segment_duration)
+                    
+                    # Update overall statistics
+                    for key in all_stats:
+                        if key in stats:
+                            all_stats[key] += stats[key]
+                except Exception as e:
+                    print(f"Error processing {jams_file}: {str(e)}")
+                    all_stats['errors'] += 1
+                    continue  # Skip to next file
                     
             print(f"Processing complete. Statistics:")
             print(f"Total tablature files: {all_stats['total']}")
             print(f"Files with any notes: {all_stats['with_notes']}")
             print(f"Files with any notes on first string: {all_stats['with_first_string']}")
+            print(f"Files with errors: {all_stats['errors']}")
             
             return all_stats
             
@@ -941,7 +953,7 @@ if __name__ == "__main__":
     if jams_files:
         print(f"Testing first JAMS file: {jams_files[0]}")
         try:
-            jam = jams.load(jams_files[0])
+            jam = jams.load(str(jams_files[0]))
             print("✓ Successfully loaded JAMS file")
         except Exception as e:
             print(f"✗ Failed to load JAMS file: {str(e)}")
