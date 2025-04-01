@@ -563,11 +563,19 @@ class GuitarTablatureExtractor:
         # Process each MIDI pitch
         for i, pitch in enumerate(midi_pitches):
             conf = confidence[i] if confidence is not None else 1.0
-            
+    
             # Skip if confidence is too low
             if conf < 0.5:
                 continue
-                
+    
+    #         Check if pitch is a dictionary and extract the actual value
+            if isinstance(pitch, dict):
+                if 'value' in pitch:
+                    pitch = pitch['value']
+                else:
+            # Skip this pitch if we can't extract a value
+                    continue
+            
             # Find possible string-fret combinations
             possible_positions = []
             for string_idx, open_pitch in enumerate(self.open_string_pitches):
@@ -575,12 +583,6 @@ class GuitarTablatureExtractor:
                 # Check if valid fret position
                 if 0 <= fret < self.num_frets:
                     possible_positions.append((string_idx, fret))
-            
-            # Choose the most probable position (prefer lower frets)
-            if possible_positions:
-                possible_positions.sort(key=lambda x: x[1])
-                string_idx, fret = possible_positions[0]
-                tablature[string_idx, fret] = 1
                 
         return tablature
     def extract_tablature_from_jams(self, jam, segment_time): 
