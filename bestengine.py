@@ -1037,7 +1037,7 @@ def main():
     
     # Load your data
     audio_dir = "/kaggle/working/Guitar-Tablature-Classification/cqt_images"
-    annotation_dir = '/kaggle/working/Guitar-Tablature-Classification/tablature_segments'
+    annotation_dir = '/kaggle/working/Guitar-Tablature-Classification/tablatures'
     
     print("Loading data...")
     from my_dataloader import create_dataloaders
