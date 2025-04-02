@@ -436,7 +436,9 @@ import soundfile as sf
 import pydub
 import tempfile
 import sys
-
+import torch
+import torchvision.transforms as transforms
+import torchvision.models as models
 # Inherit necessary code from your existing tablature_generator.py
 # Only keeping essential parts for clarity
 class GuitarTabNet(nn.Module):
@@ -482,9 +484,7 @@ class TablatureImageGenerator:
             device (str, optional): Device to use ('cuda' or 'cpu'). Defaults to None.
         """
         # Import needed modules here to ensure they're available
-        import torch
-        import torchvision.transforms as transforms
-        import torchvision.models as models
+        
         
         # Set device
         if device is None:
